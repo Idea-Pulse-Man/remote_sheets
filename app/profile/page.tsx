@@ -132,7 +132,7 @@ export default function ProfilePage() {
         {profiles.map((profile) => (
           <div
             key={profile.id}
-            className="border flex-1 min-w-[320px] p-6 rounded-lg shadow-sm bg-white space-y-4"
+            className="border flex-1 min-w-[320px] p-6 rounded-lg shadow-sm bg-card text-card-foreground space-y-4"
           >
             <div className="mb-2">
               {editingField?.profileId === profile.id && editingField?.field === "full_name" ? (

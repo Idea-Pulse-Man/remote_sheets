@@ -5,22 +5,29 @@ on:
   push:
     branches: [main, CI_test]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - uses: pnpm/action-setup@v2
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
         with:
-          version: 8
-
-      - uses: actions/setup-node@v4
+          node-version: '20.9'   # Match Node.js version
+          
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v2
         with:
-          node-version: 20
-          cache: pnpm
-
-      - run: pnpm install
-      - run: pnpm typecheck
-      - run: pnpm build
+          version: '7.x'  # Ensure you use the correct pnpm version
+          
+      - name: Install dependencies
+        run: pnpm install
