@@ -17,46 +17,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Run structure-preserving tailoring pipeline
+    // This returns structured data WITHOUT generating files
     const result = await tailorResumeWithStructure({
       file,
       jobTitle,
       jobDescription,
     });
 
-    // Validate buffers before encoding
-    if (!result.docxBuffer || result.docxBuffer.length === 0) {
-      throw new Error("DOCX generation failed: empty buffer");
-    }
-
-    if (!result.pdfBuffer || result.pdfBuffer.length === 0) {
-      throw new Error("PDF generation failed: empty buffer");
-    }
-
-    // Convert buffers to base64 for response
-    const docxBase64 = result.docxBuffer.toString("base64");
-    const pdfBase64 = result.pdfBuffer.toString("base64");
-
-    const docxDataUrl = `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${docxBase64}`;
-    const pdfDataUrl = `data:application/pdf;base64,${pdfBase64}`;
-
+    // Return structured resume data for preview
+    // Files will be generated after user accepts the preview
     return NextResponse.json({
       tailoredText: result.tailoredText,
-      files: {
-        docx: {
-          fileName: "tailored-resume.docx",
-          fileType: "docx",
-          fileSize: result.docxBuffer.length,
-          downloadUrl: docxDataUrl,
-          mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        },
-        pdf: {
-          fileName: "tailored-resume.pdf",
-          fileType: "pdf",
-          fileSize: result.pdfBuffer.length,
-          downloadUrl: pdfDataUrl,
-          mimeType: "application/pdf",
-        },
-      },
+      tailoredContent: result.tailoredContent,
+      structure: result.structure,
     });
   } catch (error) {
     console.error("Structure-preserving tailor error:", error);

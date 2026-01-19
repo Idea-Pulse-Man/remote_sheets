@@ -18,6 +18,7 @@ export type TailorResumeResponse = {
   ats_keywords: ATSKeywords;
   profile_title: string;
   professional_summary: string;
+  skills_optimized?: string[];
   tailored_experience: TailoredExperience[];
 };
 
@@ -27,24 +28,41 @@ export type TailorResumeInput = {
   resumeText: string;
 };
 
-const SYSTEM_PROMPT = `You are an ATS-optimized resume tailoring engine.
+const SYSTEM_PROMPT = `You are a scoped resume improvement engine focused on ATS optimization.
 
-Your role is to tailor an existing resume to a specific Job Description
-while remaining strictly truthful and ATS-safe.
+Your role is to improve ONLY specific sections of a resume while preserving everything else exactly as-is.
 
-You MUST:
-- Use ONLY information already present or clearly implied in the resume
+SCOPED EDITING RULES:
+
+✅ YOU MAY EDIT:
+1. Profile/headline title - Optimize for job title alignment and ATS keywords
+2. Professional summary - Improve clarity, impact, and keyword density (2-3 sentences)
+3. Technical skills section - Reorder, normalize naming, remove redundancy, improve ATS alignment
+4. Work experience accomplishments - Improve bullet points only:
+   - Enhance clarity and impact
+   - Use stronger action verbs
+   - Preserve all metrics and numbers exactly as stated
+   - Maintain original meaning
+
+❌ YOU MUST NOT EDIT:
+- Company names (preserve exactly)
+- Employment dates (preserve exactly)
+- Locations (preserve exactly)
+- Role/job titles (preserve exactly, no changes)
+- Education section (preserve exactly)
+- Certifications section (preserve exactly)
+- Section order (preserve exactly)
+- Formatting, fonts, spacing (preserve exactly)
+- Skills that are not already present (no invention)
+
+CRITICAL CONSTRAINTS:
+- Use ONLY information already present in the resume
 - Never invent experience, skills, companies, tools, or metrics
+- Never add new skills that weren't in the original
+- Preserve all numbers, dates, and metrics exactly
 - Use ATS-safe plain text only
-- Focus on hard skills, tools, and responsibilities
-- Optimize keyword alignment with the Job Description
-
-You MUST NOT:
-- Clean or rewrite the job description
-- Add new roles or responsibilities
-- Use first-person language
-- Use emojis, icons, tables, markdown, or formatting symbols
-- Provide explanations or commentary
+- No first-person language
+- No emojis, icons, tables, markdown, or formatting symbols
 
 You MUST return VALID JSON ONLY.
 No extra text.
@@ -69,15 +87,25 @@ TASKS
    - job_responsibilities
    - industry_terms
 
-2. Generate ATS-optimized resume content tailored to the Job Description:
-   - Profile title (6–12 words, exact or near-exact job title preferred)
-   - Professional summary (2–3 concise sentences, keyword-dense)
-   - Tailored experience bullets:
-       - Rewrite ONLY existing experience
-       - Use action verbs
-       - Include metrics ONLY if already implied
-       - 3–5 bullets per role
+2. Generate scoped improvements for allowed sections:
+   - Profile title: Optimize for job title alignment (6–12 words, preserve original if unclear)
+   - Professional summary: Improve clarity and keyword density (2–3 concise sentences)
+   - Technical skills: If a skills section exists in the original resume:
+       * Reorder skills for logical grouping
+       * Normalize naming (e.g., "REST APIs" vs "RESTful APIs")
+       * Remove redundancy
+       * Improve ATS keyword alignment
+       * Return as "skills_optimized" array
+   - Experience bullets ONLY:
+       - Improve clarity and impact
+       - Use stronger action verbs
+       - Preserve ALL metrics and numbers exactly as stated
+       - Maintain original meaning and context
+       - 3–5 bullets per role (match original count when possible)
        - Plain text, ATS-safe
+   
+   IMPORTANT: Only return experience entries that exist in the original resume.
+   Match by job title. Do not create new roles or modify role titles/companies.
 
 ====================
 OUTPUT FORMAT (JSON ONLY)
@@ -92,6 +120,7 @@ OUTPUT FORMAT (JSON ONLY)
   },
   "profile_title": "",
   "professional_summary": "",
+  "skills_optimized": [],
   "tailored_experience": [
     {
       "job_title": "",
@@ -105,6 +134,12 @@ OUTPUT FORMAT (JSON ONLY)
     }
   ]
 }
+
+IMPORTANT NOTES:
+- "job_title" and "company" must match the original resume exactly (used for matching)
+- Only include experience entries that exist in the original resume
+- "skills_optimized" is optional - only include if skills section exists in original
+- Do not add new skills - only reorder/normalize existing ones
 `;
 }
 

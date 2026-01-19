@@ -4,7 +4,7 @@ import { inferStructureFromText } from "./structure/infer";
 import { structureToContent } from "./structure/infer";
 import { rebuildResume } from "./rebuild";
 import { tailorResumeWithOpenAI } from "../resumeTailor";
-import { mapTailoredToStructure } from "./tailor/structureAware";
+import { applyScopedTailoring } from "./tailor/scopedTailor";
 import type { ResumeStructure } from "./structure/types";
 import type { ResumeContent } from "../resumeTemplates/types";
 
@@ -18,8 +18,9 @@ export interface TailorResumePipelineOutput {
   tailoredText: string;
   tailoredContent: ResumeContent;
   structure: ResumeStructure;
-  docxBuffer: Buffer;
-  pdfBuffer: Buffer;
+  // Files are generated only after preview acceptance
+  docxBuffer?: Buffer;
+  pdfBuffer?: Buffer;
 }
 
 /**
@@ -87,20 +88,35 @@ export async function tailorResumeWithStructure(
     resumeText: parseResult.text,
   });
 
-  // Step 4: Map tailored content to preserve structure
-  const tailoredContent = mapTailoredToStructure(
+  // Step 4: Apply scoped tailoring - only improve allowed sections
+  const tailoredContent = applyScopedTailoring(
     structure,
     tailoredResponse,
     originalContent
   );
 
-  // Step 5: Rebuild resume with tailored content
-  // DOCX is the source of truth - generate it first
-  const docxResult = await rebuildResume(
-    structure,
+  // Step 5: Format tailored text for ATS checking
+  // Files are NOT generated here - only after preview acceptance
+  const tailoredText = formatTailoredResumeText(tailoredContent);
+
+  return {
+    tailoredText,
     tailoredContent,
-    { outputFormat: "docx" }
-  );
+    structure,
+    // Files will be generated after preview acceptance
+  };
+}
+
+/**
+ * Generate DOCX and PDF files from tailored resume content
+ * Called after user accepts the preview
+ */
+export async function generateResumeFiles(
+  structure: ResumeStructure,
+  tailoredContent: ResumeContent
+): Promise<{ docxBuffer: Buffer; pdfBuffer: Buffer }> {
+  // DOCX is the source of truth - generate it first
+  const docxResult = await rebuildResume(structure, tailoredContent, { outputFormat: "docx" });
 
   // Validate DOCX buffer
   if (!docxResult.buffer || docxResult.buffer.length === 0) {
@@ -108,25 +124,14 @@ export async function tailorResumeWithStructure(
   }
 
   // Generate PDF from the same tailored content
-  // Note: In production, consider converting DOCX to PDF using a service
-  const pdfResult = await rebuildResume(
-    structure,
-    tailoredContent,
-    { outputFormat: "pdf" }
-  );
+  const pdfResult = await rebuildResume(structure, tailoredContent, { outputFormat: "pdf" });
 
   // Validate PDF buffer
   if (!pdfResult.buffer || pdfResult.buffer.length === 0) {
     throw new Error("Failed to generate PDF: buffer is empty");
   }
 
-  // Format tailored text for ATS checking
-  const tailoredText = formatTailoredResumeText(tailoredContent);
-
   return {
-    tailoredText,
-    tailoredContent,
-    structure,
     docxBuffer: docxResult.buffer,
     pdfBuffer: pdfResult.buffer,
   };

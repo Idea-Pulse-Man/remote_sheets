@@ -41,29 +41,31 @@ export function buildDOCXFromStructure(
   }
 
   // Map tailored content to original structure order
+  // Only editable sections use tailored content; others use original
   const sectionMap = new Map<SectionType, any>();
   
-  // Summary
+  // ALLOWED: Summary (editable)
   if (tailoredContent.professionalSummary) {
     sectionMap.set("summary", tailoredContent.professionalSummary);
   }
   
-  // Experience
+  // ALLOWED: Experience (bullets only, job titles/companies preserved)
   if (tailoredContent.experience && tailoredContent.experience.length > 0) {
     sectionMap.set("experience", tailoredContent.experience);
   }
   
-  // Skills
+  // ALLOWED: Skills (editable - reorder, normalize)
   if (tailoredContent.skills && tailoredContent.skills.length > 0) {
     sectionMap.set("skills", tailoredContent.skills);
   }
   
-  // Education
+  // PRESERVED: Education (use original from structure if available)
+  // Note: Education is preserved as-is, but we still include it in the document
   if (tailoredContent.education && tailoredContent.education.length > 0) {
     sectionMap.set("education", tailoredContent.education);
   }
   
-  // Certifications
+  // PRESERVED: Certifications (use original from structure if available)
   if (tailoredContent.certifications && tailoredContent.certifications.length > 0) {
     sectionMap.set("certifications", tailoredContent.certifications);
   }

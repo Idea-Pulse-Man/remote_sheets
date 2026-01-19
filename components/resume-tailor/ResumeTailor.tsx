@@ -24,11 +24,15 @@ import { cn } from "@/lib/utils";
 import { ATSScoreComparison } from "./ATSScoreComparison";
 import { TailorResults } from "./TailorResults";
 import { ResumeTailorSettings } from "./ResumeTailorSettings";
+import { ResumePreview } from "./ResumePreview";
+import type { ResumeContent } from "@/lib/resumeTemplates/types";
+import type { ResumeStructure } from "@/lib/resume/structure/types";
 
 type TailorState =
   | "input" // User entering information
   | "tailoring" // AI processing
-  | "results" // Showing results
+  | "preview" // Preview tailored resume
+  | "results" // Showing results with downloads
   | "settings"; // Advanced settings
 
 type TailorData = {
@@ -39,6 +43,8 @@ type TailorData = {
   resumeFileName: string;
   resumeText: string;
   tailoredResume: string;
+  tailoredContent?: ResumeContent; // Structured resume data (single source of truth)
+  structure?: ResumeStructure; // Original structure for rebuilding
   originalATSScore: number | null;
   improvedATSScore: number | null;
   matchedKeywords: string[];
@@ -225,17 +231,16 @@ export function ResumeTailor() {
 
       const tailorResult = await tailorResponse.json();
       
-      // Validate response structure
-      if (!tailorResult.files || !tailorResult.files.docx || !tailorResult.files.pdf) {
-        throw new Error("Invalid response: missing file data");
+      // Validate response structure - now expects structured data, not files
+      if (!tailorResult.tailoredContent || !tailorResult.structure) {
+        throw new Error("Invalid response: missing resume data");
       }
 
+      // Store structured resume data (single source of truth)
       updateData({
         tailoredResume: tailorResult.tailoredText,
-        generatedFiles: {
-          docx: tailorResult.files.docx,
-          pdf: tailorResult.files.pdf,
-        },
+        tailoredContent: tailorResult.tailoredContent,
+        structure: tailorResult.structure,
       });
 
       // Step 3: Check improved ATS score
@@ -265,10 +270,9 @@ export function ResumeTailor() {
         recommendations: improvedATSData.recommendations || [],
       });
 
-      setProgressStage("generating");
       setProgress(100);
-      setState("results");
-      toast.success("Resume tailored successfully with your original format preserved!");
+      setState("preview");
+      toast.success("Resume tailored successfully! Please review the preview.");
     } catch (error) {
       console.error("Error tailoring resume:", error);
       toast.error(
@@ -283,12 +287,64 @@ export function ResumeTailor() {
     setState("input");
     updateData({
       tailoredResume: "",
+      tailoredContent: undefined,
+      structure: undefined,
       originalATSScore: null,
       improvedATSScore: null,
       matchedKeywords: [],
       missingKeywords: [],
       recommendations: [],
+      generatedFiles: undefined,
     });
+  };
+
+  const handleAcceptPreview = async () => {
+    if (!data.tailoredContent || !data.structure) {
+      toast.error("Missing resume data. Please tailor your resume again.");
+      return;
+    }
+
+    setProgressStage("generating");
+    setProgress(0);
+    toast.info("Generating resume files...");
+
+    try {
+      const response = await fetch("/api/resume-generate-files", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tailoredContent: data.tailoredContent,
+          structure: data.structure,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate files");
+      }
+
+      const result = await response.json();
+      
+      if (!result.files || !result.files.docx || !result.files.pdf) {
+        throw new Error("Invalid response: missing file data");
+      }
+
+      updateData({
+        generatedFiles: {
+          docx: result.files.docx,
+          pdf: result.files.pdf,
+        },
+      });
+
+      setProgress(100);
+      setState("results");
+      toast.success("Resume files generated successfully!");
+    } catch (error) {
+      console.error("Error generating files:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to generate files. Please try again."
+      );
+    }
   };
 
   const handleDownload = async () => {
@@ -400,11 +456,28 @@ export function ResumeTailor() {
     );
   }
 
+  if (state === "preview") {
+    if (!data.tailoredContent) {
+      toast.error("Missing resume data. Please tailor your resume again.");
+      setState("input");
+      return null;
+    }
+
+    return (
+      <ResumePreview
+        resumeContent={data.tailoredContent}
+        onAccept={handleAcceptPreview}
+        onEdit={handleRetailor}
+        isGenerating={progressStage === "generating"}
+      />
+    );
+  }
+
   if (state === "results") {
     return (
       <div className="w-full max-w-4xl mx-auto py-8 px-4 space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Resume Tailored</h1>
+          <h1 className="text-3xl font-bold">Resume Ready</h1>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setShowSettings(true)}>
               <Settings className="h-4 w-4 mr-2" />
@@ -448,6 +521,20 @@ export function ResumeTailor() {
           <p className="text-sm text-muted-foreground mt-2">
             Enter job details and upload your resume. We'll optimize it for ATS and the role.
           </p>
+          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <p className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-2">
+              What We'll Improve:
+            </p>
+            <ul className="text-xs text-blue-800 dark:text-blue-300 space-y-1 list-disc list-inside">
+              <li>Profile/headline title</li>
+              <li>Professional summary</li>
+              <li>Technical skills (reorder & normalize)</li>
+              <li>Work experience accomplishments (bullet points only)</li>
+            </ul>
+            <p className="text-xs text-blue-700 dark:text-blue-400 mt-2 font-medium">
+              Everything else (company names, dates, education, certifications) remains unchanged.
+            </p>
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
