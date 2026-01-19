@@ -455,7 +455,7 @@ export function ResumeTailor() {
       }
 
       const result = await response.json();
-      updateData({ generatedFile: result });
+      updateData({ generatedFiles: result });
       toast.success("Resume file generated successfully");
     } catch (error) {
       console.error("Error generating file:", error);

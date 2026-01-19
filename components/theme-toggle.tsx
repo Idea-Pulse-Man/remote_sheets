@@ -9,12 +9,12 @@ import { Button } from "@/components/ui/button"
 export function ThemeToggle() {
   const [mounted, setMounted] = useState(false)
   const { resolvedTheme, setTheme } = useTheme()
-  
+
   // Prevent hydration mismatch by only rendering theme-dependent content after mount
   useEffect(() => {
     setMounted(true)
   }, [])
-  
+
   // Show a placeholder during SSR that matches the initial state
   if (!mounted) {
     return (

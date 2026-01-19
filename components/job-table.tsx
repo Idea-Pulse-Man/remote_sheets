@@ -45,7 +45,6 @@ export function JobTable() {
   const fetchJobs = async () => {
     try {
       const { data, error } = await supabase.from("jobs").select("*");
-      console.log("data~~~~~", data);
 
       if (error) throw error;
       setJobs(data || []);
