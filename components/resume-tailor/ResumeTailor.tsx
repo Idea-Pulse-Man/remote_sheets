@@ -299,8 +299,21 @@ export function ResumeTailor() {
   };
 
   const handleAcceptPreview = async () => {
-    if (!data.tailoredContent || !data.structure) {
-      toast.error("Missing resume data. Please tailor your resume again.");
+    // Validate required data before generating files
+    if (!data.tailoredContent) {
+      toast.error("Missing resume content. Please tailor your resume again.");
+      return;
+    }
+    if (!data.structure) {
+      toast.error("Missing resume structure. Please tailor your resume again.");
+      return;
+    }
+    if (!data.tailoredContent.profileTitle || !data.tailoredContent.profileTitle.trim()) {
+      toast.error("Invalid resume content: profile title is required.");
+      return;
+    }
+    if (!data.structure.sections || !Array.isArray(data.structure.sections)) {
+      toast.error("Invalid resume structure: sections are required.");
       return;
     }
 

@@ -17,9 +17,18 @@ export async function rebuildPDFFromStructure(
   structure: ResumeStructure,
   tailoredContent: ResumeContent
 ): Promise<Buffer> {
-  // Validate input
-  if (!tailoredContent || !tailoredContent.profileTitle) {
-    throw new Error("Invalid tailored content: missing required fields");
+  // Validate required parameters
+  if (!structure) {
+    throw new Error("Missing required parameter: structure");
+  }
+  if (!tailoredContent) {
+    throw new Error("Missing required parameter: tailoredContent");
+  }
+  if (!tailoredContent.profileTitle || !tailoredContent.profileTitle.trim()) {
+    throw new Error("Invalid tailoredContent: profileTitle is required");
+  }
+  if (!structure.sections || !Array.isArray(structure.sections)) {
+    throw new Error("Invalid structure: sections array is required");
   }
 
   // Generate PDF using the existing PDF generator

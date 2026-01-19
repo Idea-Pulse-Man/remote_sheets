@@ -35,6 +35,17 @@ export interface TailorResumePipelineOutput {
 export async function tailorResumeWithStructure(
   input: TailorResumePipelineInput
 ): Promise<TailorResumePipelineOutput> {
+  // Validate input parameters
+  if (!input.file) {
+    throw new Error("Missing required parameter: file");
+  }
+  if (!input.jobTitle || !input.jobTitle.trim()) {
+    throw new Error("Missing required parameter: jobTitle");
+  }
+  if (!input.jobDescription || !input.jobDescription.trim()) {
+    throw new Error("Missing required parameter: jobDescription");
+  }
+
   // Step 1: Parse resume file
   const parseResult = await parseResume(input.file);
   const fileType = parseResult.fileType;
@@ -88,12 +99,25 @@ export async function tailorResumeWithStructure(
     resumeText: parseResult.text,
   });
 
+  // Validate AI response
+  if (!tailoredResponse) {
+    throw new Error("AI tailoring failed: no response received");
+  }
+  if (!tailoredResponse.profile_title || !tailoredResponse.profile_title.trim()) {
+    throw new Error("AI tailoring failed: missing profile title in response");
+  }
+
   // Step 4: Apply scoped tailoring - only improve allowed sections
   const tailoredContent = applyScopedTailoring(
     structure,
     tailoredResponse,
     originalContent
   );
+
+  // Validate tailored content
+  if (!tailoredContent.profileTitle || !tailoredContent.profileTitle.trim()) {
+    throw new Error("Tailored content validation failed: profile title is required");
+  }
 
   // Step 5: Format tailored text for ATS checking
   // Files are NOT generated here - only after preview acceptance
@@ -115,6 +139,20 @@ export async function generateResumeFiles(
   structure: ResumeStructure,
   tailoredContent: ResumeContent
 ): Promise<{ docxBuffer: Buffer; pdfBuffer: Buffer }> {
+  // Validate required parameters
+  if (!structure) {
+    throw new Error("Missing required parameter: structure");
+  }
+  if (!tailoredContent) {
+    throw new Error("Missing required parameter: tailoredContent");
+  }
+  if (!tailoredContent.profileTitle || !tailoredContent.profileTitle.trim()) {
+    throw new Error("Invalid tailoredContent: profileTitle is required");
+  }
+  if (!structure.sections || !Array.isArray(structure.sections)) {
+    throw new Error("Invalid structure: sections array is required");
+  }
+
   // DOCX is the source of truth - generate it first
   const docxResult = await rebuildResume(structure, tailoredContent, { outputFormat: "docx" });
 

@@ -12,9 +12,28 @@ export async function POST(request: NextRequest) {
       structure: ResumeStructure;
     };
 
-    if (!tailoredContent || !structure) {
+    // Validate required fields
+    if (!tailoredContent) {
       return NextResponse.json(
-        { error: "Missing required fields: tailoredContent, structure" },
+        { error: "Missing required field: tailoredContent" },
+        { status: 400 }
+      );
+    }
+    if (!structure) {
+      return NextResponse.json(
+        { error: "Missing required field: structure" },
+        { status: 400 }
+      );
+    }
+    if (!tailoredContent.profileTitle || !tailoredContent.profileTitle.trim()) {
+      return NextResponse.json(
+        { error: "Invalid tailoredContent: profileTitle is required" },
+        { status: 400 }
+      );
+    }
+    if (!structure.sections || !Array.isArray(structure.sections)) {
+      return NextResponse.json(
+        { error: "Invalid structure: sections array is required" },
         { status: 400 }
       );
     }

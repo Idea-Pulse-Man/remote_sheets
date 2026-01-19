@@ -6,9 +6,8 @@ import {
   AlignmentType,
   TabStopType,
   TabStopPosition,
-  SectionType,
 } from "docx";
-import type { ResumeStructure } from "../structure/types";
+import type { ResumeStructure, SectionType } from "../structure/types";
 import type { ResumeContent } from "../../resumeTemplates/types";
 
 /**
@@ -18,6 +17,20 @@ export function buildDOCXFromStructure(
   structure: ResumeStructure,
   tailoredContent: ResumeContent
 ): Document {
+  // Validate required parameters
+  if (!structure) {
+    throw new Error("Missing required parameter: structure");
+  }
+  if (!tailoredContent) {
+    throw new Error("Missing required parameter: tailoredContent");
+  }
+  if (!tailoredContent.profileTitle || !tailoredContent.profileTitle.trim()) {
+    throw new Error("Invalid tailoredContent: profileTitle is required");
+  }
+  if (!structure.sections || !Array.isArray(structure.sections)) {
+    throw new Error("Invalid structure: sections array is required");
+  }
+
   const children: Paragraph[] = [];
 
   // Header section

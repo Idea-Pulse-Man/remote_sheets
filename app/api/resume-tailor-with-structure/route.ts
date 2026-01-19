@@ -9,9 +9,22 @@ export async function POST(request: NextRequest) {
     const jobTitle = formData.get("jobTitle") as string;
     const jobDescription = formData.get("jobDescription") as string;
 
-    if (!file || !jobTitle || !jobDescription) {
+    // Validate required fields with explicit checks
+    if (!file) {
       return NextResponse.json(
-        { error: "Missing required fields: file, jobTitle, jobDescription" },
+        { error: "Missing required field: file" },
+        { status: 400 }
+      );
+    }
+    if (!jobTitle || !jobTitle.trim()) {
+      return NextResponse.json(
+        { error: "Missing required field: jobTitle" },
+        { status: 400 }
+      );
+    }
+    if (!jobDescription || !jobDescription.trim()) {
+      return NextResponse.json(
+        { error: "Missing required field: jobDescription" },
         { status: 400 }
       );
     }
