@@ -90,13 +90,22 @@ export function ResumeTailor() {
   };
 
   const handleFileSelect = async (file: File) => {
-    if (!file.name.match(/\.(pdf|docx)$/i)) {
+    // Client-side validation
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    if (!extension || !["pdf", "docx"].includes(extension)) {
       toast.error("Please upload a PDF or DOCX file");
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("File size must be less than 5MB");
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      const maxSizeMB = (maxSize / (1024 * 1024)).toFixed(0);
+      toast.error(`File size must be less than ${maxSizeMB}MB`);
+      return;
+    }
+
+    if (file.size === 0) {
+      toast.error("File is empty. Please select a valid file.");
       return;
     }
 
@@ -113,14 +122,18 @@ export function ResumeTailor() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to parse resume");
+        const errorMessage =
+          errorData.error || `Failed to parse ${extension.toUpperCase()} file`;
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
       const resumeText = result.text || "";
 
       if (!resumeText.trim()) {
-        throw new Error("Could not extract text from resume. Please ensure the file is not corrupted.");
+        throw new Error(
+          "Could not extract text from resume. The file may be empty, corrupted, or contain only images."
+        );
       }
 
       updateData({
@@ -129,12 +142,14 @@ export function ResumeTailor() {
         resumeText,
       });
 
-      toast.success("Resume uploaded and parsed successfully");
+      toast.success(`Resume parsed successfully (${result.fileType?.toUpperCase() || extension.toUpperCase()})`);
     } catch (error) {
       console.error("Error parsing resume:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to parse resume. Please try again."
-      );
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to parse resume. Please try again.";
+      toast.error(errorMessage, { duration: 5000 });
     } finally {
       setIsParsing(false);
     }
