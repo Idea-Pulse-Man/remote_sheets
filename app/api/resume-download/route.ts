@@ -39,8 +39,12 @@ export async function GET(request: NextRequest) {
       fileBuffer = Buffer.from(fileData, "base64");
     }
 
+    // Ensure Buffer is properly typed for NextResponse
+    // Convert Buffer to Uint8Array for NextResponse compatibility
+    const fileUint8Array = new Uint8Array(fileBuffer);
+
     // Return file with proper headers for download
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(fileUint8Array, {
       headers: {
         "Content-Type": actualMimeType,
         "Content-Disposition": `attachment; filename="${encodeURIComponent(fileName)}"`,
