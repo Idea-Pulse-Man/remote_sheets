@@ -1,9 +1,13 @@
+import "server-only"
+
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 
 /**
  * Get Supabase server client for use in Server Components, Server Actions, and Route Handlers
  * This function MUST be called at request time, not at module scope or during build
+ * 
+ * SERVER-ONLY: This file uses "server-only" to prevent accidental bundling in client code
  */
 export async function getSupabaseServerClient() {
   const cookieStore = await cookies()
