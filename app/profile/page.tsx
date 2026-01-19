@@ -1,5 +1,9 @@
 "use client";
 
+// Force dynamic rendering to prevent static prerendering
+// This ensures the route segment is rendered at request time
+export const dynamic = "force-dynamic";
+
 import React, { useState, useEffect } from "react";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
