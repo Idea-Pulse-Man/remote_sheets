@@ -360,38 +360,69 @@ export function ResumeTailor() {
     }
   };
 
-  const handleDownload = async () => {
-    if (!data.generatedFile) {
-      toast.info("Generating resume file...");
-      await handleGenerateFile();
+  const handleDownload = async (format: "docx" | "pdf") => {
+    // Validate files are generated
+    if (!data.generatedFiles) {
+      toast.error("Files not generated. Please accept the preview first.");
+      return;
+    }
+
+    const file = data.generatedFiles[format];
+    if (!file || !file.downloadUrl) {
+      toast.error(`No ${format.toUpperCase()} file available for download`);
       return;
     }
 
     try {
-      if (data.generatedFile.downloadUrl.startsWith("data:")) {
-        const response = await fetch("/api/resume-download", {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = data.generatedFile.fileName;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+      // Extract base64 data from data URL
+      let base64Data: string;
+      if (file.downloadUrl.startsWith("data:")) {
+        const matches = file.downloadUrl.match(/^data:[^;]+;base64,(.+)$/);
+        if (!matches || !matches[1]) {
+          throw new Error("Invalid data URL format");
+        }
+        base64Data = matches[1];
       } else {
-        window.open(data.generatedFile.downloadUrl, "_blank");
+        // For non-data URLs, fetch and convert
+        const response = await fetch(file.downloadUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch file: ${response.statusText}`);
+        }
+        const blob = await response.blob();
+        const arrayBuffer = await blob.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = "";
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        base64Data = btoa(binary);
       }
-      toast.success("Resume downloaded successfully");
+
+      // Convert base64 to blob
+      const byteCharacters = atob(base64Data);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: file.mimeType });
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = file.fileName;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Cleanup
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast.success(`${format.toUpperCase()} downloaded successfully`);
     } catch (error) {
-      console.error("Error downloading resume:", error);
-      toast.error("Failed to download resume");
+      console.error(`Error downloading ${format}:`, error);
+      toast.error(`Failed to download ${format.toUpperCase()}. ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   };
 

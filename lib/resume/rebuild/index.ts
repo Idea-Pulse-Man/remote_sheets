@@ -22,12 +22,13 @@ export async function rebuildResume(
   }
 
   if (options.outputFormat === "docx") {
+    // Generate DOCX first (source of truth)
     const docx = buildDOCXFromStructure(structure, tailoredContent);
     const buffer = await Packer.toBuffer(docx);
     
-    // Validate DOCX buffer
-    if (!buffer || buffer.length === 0) {
-      throw new Error("DOCX generation failed: empty buffer");
+    // Validate DOCX buffer - must be valid Buffer with data
+    if (!buffer || !Buffer.isBuffer(buffer) || buffer.length === 0) {
+      throw new Error("DOCX generation failed: invalid or empty buffer returned from Packer.toBuffer");
     }
     
     return {
@@ -36,12 +37,13 @@ export async function rebuildResume(
       fileExtension: "docx",
     };
   } else {
-    // PDF: Generate from tailored content
+    // PDF: Generate from same structured content
+    // Note: In production, consider converting DOCX to PDF for better structure preservation
     const buffer = await rebuildPDFFromStructure(structure, tailoredContent);
     
-    // Validate PDF buffer
-    if (!buffer || buffer.length === 0) {
-      throw new Error("PDF generation failed: empty buffer");
+    // Validate PDF buffer - must be valid Buffer with data
+    if (!buffer || !Buffer.isBuffer(buffer) || buffer.length === 0) {
+      throw new Error("PDF generation failed: invalid or empty buffer returned from PDF generator");
     }
     
     return {

@@ -41,13 +41,13 @@ export async function POST(request: NextRequest) {
     // Generate files from structured resume data
     const { docxBuffer, pdfBuffer } = await generateResumeFiles(structure, tailoredContent);
 
-    // Validate buffers
-    if (!docxBuffer || docxBuffer.length === 0) {
-      throw new Error("DOCX generation failed: empty buffer");
+    // Validate buffers - fail loudly if generation failed
+    if (!docxBuffer || !Buffer.isBuffer(docxBuffer) || docxBuffer.length === 0) {
+      throw new Error("DOCX generation failed: invalid or empty buffer");
     }
 
-    if (!pdfBuffer || pdfBuffer.length === 0) {
-      throw new Error("PDF generation failed: empty buffer");
+    if (!pdfBuffer || !Buffer.isBuffer(pdfBuffer) || pdfBuffer.length === 0) {
+      throw new Error("PDF generation failed: invalid or empty buffer");
     }
 
     // Convert buffers to base64 for response
