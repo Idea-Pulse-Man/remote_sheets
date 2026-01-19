@@ -7,9 +7,14 @@ import { TEMPLATE_CONFIGS } from "../../resumeTemplates/types";
 /**
  * Rebuild PDF from structure and tailored content
  * 
- * Note: This generates PDF directly from content using the PDF generator.
- * For production, consider converting the DOCX to PDF using a service
- * (LibreOffice, CloudConvert) for better structure preservation.
+ * CRITICAL FORMAT PRESERVATION NOTE:
+ * For true format preservation, PDF should be generated FROM the modified DOCX file.
+ * This would require:
+ * 1. Generating format-preserved DOCX first
+ * 2. Converting DOCX → PDF using a service (LibreOffice, CloudConvert, or similar)
+ * 
+ * Current implementation generates PDF from content directly for compatibility,
+ * which may not preserve exact formatting. For production, implement DOCX → PDF conversion.
  * 
  * The DOCX buffer should already exist before calling this function.
  */

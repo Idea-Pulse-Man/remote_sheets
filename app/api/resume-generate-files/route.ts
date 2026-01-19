@@ -7,9 +7,13 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    const { tailoredContent, structure } = body as {
+    const { tailoredContent, structure, formatMetadata } = body as {
       tailoredContent: ResumeContent;
       structure: ResumeStructure;
+      formatMetadata?: {
+        originalDocxBuffer?: string; // Base64 encoded
+        docxParagraphsWithFormat?: any[];
+      };
     };
 
     // Validate required fields
@@ -38,8 +42,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Prepare format metadata if provided
+    let formatMetadataForGeneration: { originalDocxBuffer?: Buffer; docxParagraphsWithFormat?: any[] } | undefined;
+    if (formatMetadata?.originalDocxBuffer && formatMetadata?.docxParagraphsWithFormat) {
+      formatMetadataForGeneration = {
+        originalDocxBuffer: Buffer.from(formatMetadata.originalDocxBuffer, "base64"),
+        docxParagraphsWithFormat: formatMetadata.docxParagraphsWithFormat,
+      };
+    }
+
     // Generate files from structured resume data
-    const { docxBuffer, pdfBuffer } = await generateResumeFiles(structure, tailoredContent);
+    // Uses format-preserving rebuild if original DOCX buffer is provided
+    const { docxBuffer, pdfBuffer } = await generateResumeFiles(
+      structure,
+      tailoredContent,
+      formatMetadataForGeneration
+    );
 
     // Validate buffers - fail loudly if generation failed
     if (!docxBuffer || !Buffer.isBuffer(docxBuffer) || docxBuffer.length === 0) {

@@ -45,6 +45,10 @@ type TailorData = {
   tailoredResume: string;
   tailoredContent?: ResumeContent; // Structured resume data (single source of truth)
   structure?: ResumeStructure; // Original structure for rebuilding
+  formatMetadata?: {
+    originalDocxBuffer?: string; // Base64 encoded original DOCX buffer
+    docxParagraphsWithFormat?: any[]; // Paragraph formatting metadata
+  };
   originalATSScore: number | null;
   improvedATSScore: number | null;
   matchedKeywords: string[];
@@ -237,10 +241,12 @@ export function ResumeTailor() {
       }
 
       // Store structured resume data (single source of truth)
+      // Include format metadata for DOCX format preservation
       updateData({
         tailoredResume: tailorResult.tailoredText,
         tailoredContent: tailorResult.tailoredContent,
         structure: tailorResult.structure,
+        formatMetadata: tailorResult.formatMetadata,
       });
 
       // Step 3: Check improved ATS score
@@ -328,6 +334,7 @@ export function ResumeTailor() {
         body: JSON.stringify({
           tailoredContent: data.tailoredContent,
           structure: data.structure,
+          formatMetadata: data.formatMetadata, // Include format metadata for DOCX preservation
         }),
       });
 

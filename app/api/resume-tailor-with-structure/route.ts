@@ -38,11 +38,17 @@ export async function POST(request: NextRequest) {
     });
 
     // Return structured resume data for preview
-    // Files will be generated after user accepts the preview
+    // Include format metadata for DOCX files to enable format preservation
     return NextResponse.json({
       tailoredText: result.tailoredText,
       tailoredContent: result.tailoredContent,
       structure: result.structure,
+      formatMetadata: result.originalDocxBuffer && result.docxParagraphsWithFormat
+        ? {
+            originalDocxBuffer: result.originalDocxBuffer.toString("base64"),
+            docxParagraphsWithFormat: result.docxParagraphsWithFormat,
+          }
+        : undefined,
     });
   } catch (error) {
     console.error("Structure-preserving tailor error:", error);
