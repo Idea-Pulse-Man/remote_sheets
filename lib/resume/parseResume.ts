@@ -101,13 +101,21 @@ export async function parseResume(
   }
 
   const arrayBuffer = await file.arrayBuffer();
+  
+  if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+    throw new Error("File buffer is empty");
+  }
+  
   let result: ParseResult;
 
   try {
     if (fileType === "pdf") {
       result = await parsePDF(arrayBuffer);
     } else {
-      result = await parseDOCX(arrayBuffer);
+      // Convert ArrayBuffer to Buffer for DOCX parsing
+      // DOCX parser requires Buffer for mammoth
+      const buffer = Buffer.from(arrayBuffer);
+      result = await parseDOCX(buffer);
     }
   } catch (error) {
     const errorMessage =

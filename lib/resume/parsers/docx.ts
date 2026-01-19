@@ -5,15 +5,31 @@ export interface DOCXParseResult {
 /**
  * Parse DOCX file and extract text content
  * Uses mammoth for reliable Word document parsing
+ * 
+ * Mammoth requires { buffer: Buffer } for Node.js server-side use
+ * The arrayBuffer option is for browser environments only
  */
 export async function parseDOCX(buffer: ArrayBuffer | Buffer): Promise<DOCXParseResult> {
+  if (!buffer || (buffer instanceof Buffer && buffer.length === 0) || (buffer instanceof ArrayBuffer && buffer.byteLength === 0)) {
+    throw new Error("Invalid buffer: buffer is empty or undefined");
+  }
+
   try {
     // Dynamic import to avoid bundling issues
     const mammoth = await import("mammoth");
     
-    const arrayBuffer = buffer instanceof Buffer ? buffer.buffer : buffer;
+    // Convert ArrayBuffer to Buffer if needed
+    // Mammoth requires Buffer for Node.js server-side parsing
+    const nodeBuffer = buffer instanceof Buffer 
+      ? buffer 
+      : Buffer.from(buffer);
     
-    const result = await mammoth.default.extractRawText({ arrayBuffer });
+    if (nodeBuffer.length === 0) {
+      throw new Error("Buffer conversion resulted in empty buffer");
+    }
+    
+    // Use { buffer } option for Node.js (not { arrayBuffer })
+    const result = await mammoth.default.extractRawText({ buffer: nodeBuffer });
     const text = result.value.trim();
 
     if (!text) {
@@ -33,7 +49,10 @@ export async function parseDOCX(buffer: ArrayBuffer | Buffer): Promise<DOCXParse
       if (error.message.includes("empty")) {
         throw error;
       }
-      if (error.message.includes("not a valid")) {
+      if (error.message.includes("Could not find file")) {
+        throw new Error("Invalid DOCX file structure. The file may be corrupted or not a valid Word document.");
+      }
+      if (error.message.includes("not a valid") || error.message.includes("Invalid")) {
         throw new Error("Invalid DOCX file. The file may be corrupted or not a valid Word document.");
       }
       throw new Error(`DOCX parsing failed: ${error.message}`);
