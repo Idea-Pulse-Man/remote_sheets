@@ -6,17 +6,37 @@ export interface PDFParseResult {
 /**
  * Parse PDF file and extract text content
  * Uses pdfjs-dist legacy build for Node.js compatibility
+ * 
+ * Requires DOMMatrix polyfill from canvas package for Node.js environment
  */
 export async function parsePDF(buffer: ArrayBuffer | Buffer): Promise<PDFParseResult> {
+  if (!buffer || (buffer instanceof Buffer && buffer.length === 0) || (buffer instanceof ArrayBuffer && buffer.byteLength === 0)) {
+    throw new Error("Invalid buffer: buffer is empty or undefined");
+  }
+
   try {
-    // Dynamic import to avoid bundling issues in Next.js
-    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    // Polyfill DOMMatrix for Node.js before importing pdfjs
+    // pdfjs-dist requires DOMMatrix which doesn't exist in Node.js
+    if (typeof globalThis.DOMMatrix === "undefined") {
+      const { DOMMatrix } = await import("canvas");
+      (globalThis as any).DOMMatrix = DOMMatrix;
+    }
+
+    // Import pdfjs-dist legacy build (Node.js compatible)
+    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.js");
+    
+    // Disable worker for Node.js environment
+    pdfjsLib.GlobalWorkerOptions.workerSrc = null;
+
+    // Convert Buffer to ArrayBuffer if needed
+    const arrayBuffer = buffer instanceof Buffer 
+      ? buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
+      : buffer;
     
     const loadingTask = pdfjsLib.getDocument({
-      data: buffer,
+      data: arrayBuffer,
       useSystemFonts: true,
       verbosity: 0,
-      // Disable worker for Node.js environment
       isEvalSupported: false,
     });
 
@@ -51,11 +71,14 @@ export async function parsePDF(buffer: ArrayBuffer | Buffer): Promise<PDFParseRe
   } catch (error) {
     if (error instanceof Error) {
       // Provide more helpful error messages
-      if (error.message.includes("Invalid PDF")) {
+      if (error.message.includes("Invalid PDF") || error.message.includes("invalid")) {
         throw new Error("Invalid PDF file. The file may be corrupted or not a valid PDF.");
       }
-      if (error.message.includes("Password")) {
+      if (error.message.includes("Password") || error.message.includes("password")) {
         throw new Error("PDF is password-protected. Please remove the password and try again.");
+      }
+      if (error.message.includes("DOMMatrix")) {
+        throw new Error("PDF parsing configuration error. Please ensure canvas package is installed.");
       }
       throw new Error(`PDF parsing failed: ${error.message}`);
     }
