@@ -193,19 +193,19 @@ export function ResumeTailor() {
       const originalATSData = await originalATSResponse.json();
       updateData({ originalATSScore: originalATSData.ats_score || 0 });
 
-      // Step 2: Tailor resume
+      // Step 2: Tailor resume with structure preservation
       setProgressStage("tailoring");
       setProgress(40);
-      toast.info("Tailoring resume with AI...");
+      toast.info("Tailoring resume while preserving your original format...");
 
-      const tailorResponse = await fetch("/api/resume-tailor", {
+      const formData = new FormData();
+      formData.append("file", data.resumeFile);
+      formData.append("jobTitle", data.jobTitle);
+      formData.append("jobDescription", data.jobDescription);
+
+      const tailorResponse = await fetch("/api/resume-tailor-with-structure", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jobTitle: data.jobTitle,
-          jobDescription: data.jobDescription,
-          resumeText: data.resumeText,
-        }),
+        body: formData,
       });
 
       if (!tailorResponse.ok) {
@@ -214,14 +214,16 @@ export function ResumeTailor() {
       }
 
       const tailorResult = await tailorResponse.json();
-      const formattedResume = formatTailoredResume(
-        tailorResult.profile_title,
-        tailorResult.professional_summary,
-        tailorResult.tailored_experience,
-        data.resumeText
-      );
-
-      updateData({ tailoredResume: formattedResume });
+      
+      updateData({
+        tailoredResume: tailorResult.tailoredText,
+        generatedFile: {
+          fileName: tailorResult.fileName,
+          fileType: tailorResult.fileType,
+          fileSize: tailorResult.fileSize,
+          downloadUrl: tailorResult.downloadUrl,
+        },
+      });
 
       // Step 3: Check improved ATS score
       setProgressStage("ats-checking");
@@ -234,7 +236,7 @@ export function ResumeTailor() {
         body: JSON.stringify({
           jobTitle: data.jobTitle,
           jobDescription: data.jobDescription,
-          tailoredResumeText: formattedResume,
+          tailoredResumeText: tailorResult.tailoredText,
         }),
       });
 
@@ -250,13 +252,10 @@ export function ResumeTailor() {
         recommendations: improvedATSData.recommendations || [],
       });
 
-      // Step 4: Generate file (optional, can be done later)
       setProgressStage("generating");
-      setProgress(90);
-
       setProgress(100);
       setState("results");
-      toast.success("Resume tailored successfully!");
+      toast.success("Resume tailored successfully with your original format preserved!");
     } catch (error) {
       console.error("Error tailoring resume:", error);
       toast.error(
@@ -266,26 +265,6 @@ export function ResumeTailor() {
     }
   };
 
-  const formatTailoredResume = (
-    profileTitle: string,
-    professionalSummary: string,
-    tailoredExperience: any[],
-    originalResume: string
-  ): string => {
-    let resume = `${profileTitle}\n\n`;
-    resume += `PROFESSIONAL SUMMARY\n${professionalSummary}\n\n`;
-    resume += `EXPERIENCE\n`;
-
-    tailoredExperience.forEach((exp) => {
-      resume += `${exp.jobTitle} | ${exp.company}\n`;
-      exp.bullets?.forEach((bullet: string) => {
-        resume += `• ${bullet}\n`;
-      });
-      resume += `\n`;
-    });
-
-    return resume;
-  };
 
   const handleRetailor = () => {
     setState("input");
