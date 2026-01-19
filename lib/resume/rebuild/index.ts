@@ -16,9 +16,19 @@ export async function rebuildResume(
   tailoredContent: ResumeContent,
   options: RebuildOptions = { outputFormat: "pdf" }
 ): Promise<{ buffer: Buffer; mimeType: string; fileExtension: string }> {
+  // Validate inputs
+  if (!structure || !tailoredContent) {
+    throw new Error("Missing required parameters: structure and tailoredContent");
+  }
+
   if (options.outputFormat === "docx") {
     const docx = buildDOCXFromStructure(structure, tailoredContent);
     const buffer = await Packer.toBuffer(docx);
+    
+    // Validate DOCX buffer
+    if (!buffer || buffer.length === 0) {
+      throw new Error("DOCX generation failed: empty buffer");
+    }
     
     return {
       buffer,
@@ -26,8 +36,13 @@ export async function rebuildResume(
       fileExtension: "docx",
     };
   } else {
-    // PDF: Build DOCX first, then convert
+    // PDF: Generate from tailored content
     const buffer = await rebuildPDFFromStructure(structure, tailoredContent);
+    
+    // Validate PDF buffer
+    if (!buffer || buffer.length === 0) {
+      throw new Error("PDF generation failed: empty buffer");
+    }
     
     return {
       buffer,

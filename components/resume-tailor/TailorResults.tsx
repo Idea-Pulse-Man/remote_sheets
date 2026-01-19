@@ -24,11 +24,21 @@ type TailorResultsProps = {
     matchedKeywords: string[];
     missingKeywords: string[];
     recommendations: string[];
-    generatedFile?: {
-      fileName: string;
-      fileType: string;
-      fileSize: number;
-      downloadUrl: string;
+    generatedFiles?: {
+      docx: {
+        fileName: string;
+        fileType: string;
+        fileSize: number;
+        downloadUrl: string;
+        mimeType: string;
+      };
+      pdf: {
+        fileName: string;
+        fileType: string;
+        fileSize: number;
+        downloadUrl: string;
+        mimeType: string;
+      };
     };
     uploadedToDrive: boolean;
     googleDriveMetadata?: {
@@ -36,7 +46,7 @@ type TailorResultsProps = {
       fileUrl: string;
     };
   };
-  onDownload: () => void;
+  onDownload: (format: "docx" | "pdf") => void;
   onGenerateFile: () => void;
   updateData: (updates: any) => void;
 };
@@ -55,16 +65,25 @@ export function TailorResults({
     toast.success("Resume copied to clipboard");
   };
 
-  const handleUploadToDrive = async () => {
-    if (!data.generatedFile) {
-      toast.info("Generating file first...");
+  const handleUploadToDrive = async (format: "docx" | "pdf" = "pdf") => {
+    if (!data.generatedFiles) {
+      toast.info("Generating files first...");
       await onGenerateFile();
+      return;
+    }
+
+    const file = data.generatedFiles[format];
+    if (!file || !file.downloadUrl) {
+      toast.error(`No ${format.toUpperCase()} file available for upload`);
       return;
     }
 
     setIsUploading(true);
     try {
       const response = await fetch("/api/google-drive/check-auth");
+      if (!response.ok) {
+        throw new Error("Failed to check Google Drive authentication");
+      }
       const authData = await response.json();
 
       if (!authData.authenticated) {
@@ -73,23 +92,44 @@ export function TailorResults({
         return;
       }
 
-      const fileData = data.generatedFile.downloadUrl.startsWith("data:")
-        ? data.generatedFile.downloadUrl.split(",")[1]
-        : await fetch(data.generatedFile.downloadUrl).then((r) => r.blob());
+      // Extract base64 data from data URL
+      let fileData: string;
+      if (file.downloadUrl.startsWith("data:")) {
+        const matches = file.downloadUrl.match(/^data:[^;]+;base64,(.+)$/);
+        if (!matches || !matches[1]) {
+          throw new Error("Invalid data URL format");
+        }
+        fileData = matches[1];
+      } else {
+        const blob = await fetch(file.downloadUrl).then((r) => r.blob());
+        const arrayBuffer = await blob.arrayBuffer();
+        // Convert ArrayBuffer to base64 in browser
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = "";
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        fileData = btoa(binary);
+      }
+
+      if (!fileData) {
+        throw new Error("Failed to extract file data");
+      }
 
       const uploadResponse = await fetch("/api/google-drive/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fileData: typeof fileData === "string" ? fileData : await fileData.text(),
-          fileName: data.generatedFile.fileName,
-          mimeType: data.generatedFile.fileType === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          fileData,
+          fileName: file.fileName,
+          mimeType: file.mimeType,
           jobId: null,
         }),
       });
 
       if (!uploadResponse.ok) {
-        throw new Error("Failed to upload to Google Drive");
+        const errorData = await uploadResponse.json();
+        throw new Error(errorData.error || "Failed to upload to Google Drive");
       }
 
       const uploadResult = await uploadResponse.json();
@@ -101,10 +141,10 @@ export function TailorResults({
         },
       });
 
-      toast.success("Resume uploaded to Google Drive");
+      toast.success(`${format.toUpperCase()} uploaded to Google Drive`);
     } catch (error) {
       console.error("Error uploading to Google Drive:", error);
-      toast.error("Failed to upload to Google Drive");
+      toast.error(`Failed to upload ${format.toUpperCase()} to Google Drive`);
     } finally {
       setIsUploading(false);
     }
@@ -211,31 +251,54 @@ export function TailorResults({
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <Button
-              onClick={data.generatedFile ? onDownload : onGenerateFile}
+              onClick={() => onDownload("pdf")}
+              disabled={!data.generatedFiles}
               className="flex-1"
               size="lg"
             >
               <Download className="h-4 w-4 mr-2" />
-              {data.generatedFile ? "Download Resume" : "Generate & Download"}
+              Download PDF
             </Button>
             <Button
               variant="outline"
-              onClick={handleUploadToDrive}
-              disabled={isUploading || data.uploadedToDrive}
+              onClick={() => onDownload("docx")}
+              disabled={!data.generatedFiles}
+              className="flex-1"
+              size="lg"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download DOCX
+            </Button>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button
+              variant="outline"
+              onClick={() => handleUploadToDrive("pdf")}
+              disabled={isUploading || !data.generatedFiles}
               className="flex-1"
               size="lg"
             >
               {data.uploadedToDrive ? (
                 <>
                   <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Uploaded to Drive
+                  PDF Uploaded
                 </>
               ) : (
                 <>
                   <Upload className="h-4 w-4 mr-2" />
-                  {isUploading ? "Uploading..." : "Upload to Google Drive"}
+                  {isUploading ? "Uploading..." : "Upload PDF to Drive"}
                 </>
               )}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleUploadToDrive("docx")}
+              disabled={isUploading || !data.generatedFiles}
+              className="flex-1"
+              size="lg"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              {isUploading ? "Uploading..." : "Upload DOCX to Drive"}
             </Button>
           </div>
 
@@ -259,11 +322,15 @@ export function TailorResults({
             </div>
           )}
 
-          {data.generatedFile && (
-            <div className="p-4 bg-muted rounded-lg">
+          {data.generatedFiles && (
+            <div className="p-4 bg-muted rounded-lg space-y-2">
               <p className="text-sm text-muted-foreground">
-                <strong>File:</strong> {data.generatedFile.fileName} ({data.generatedFile.fileType.toUpperCase()})
+                <strong>Files Generated:</strong>
               </p>
+              <div className="text-sm text-muted-foreground">
+                <div>• {data.generatedFiles.docx.fileName} ({(data.generatedFiles.docx.fileSize / 1024).toFixed(1)} KB)</div>
+                <div>• {data.generatedFiles.pdf.fileName} ({(data.generatedFiles.pdf.fileSize / 1024).toFixed(1)} KB)</div>
+              </div>
             </div>
           )}
         </CardContent>

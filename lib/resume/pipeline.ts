@@ -18,9 +18,8 @@ export interface TailorResumePipelineOutput {
   tailoredText: string;
   tailoredContent: ResumeContent;
   structure: ResumeStructure;
-  fileBuffer: Buffer;
-  mimeType: string;
-  fileExtension: string;
+  docxBuffer: Buffer;
+  pdfBuffer: Buffer;
 }
 
 /**
@@ -96,11 +95,30 @@ export async function tailorResumeWithStructure(
   );
 
   // Step 5: Rebuild resume with tailored content
-  const rebuilt = await rebuildResume(
+  // DOCX is the source of truth - generate it first
+  const docxResult = await rebuildResume(
     structure,
     tailoredContent,
-    { outputFormat: "pdf" } // Always output PDF as final format
+    { outputFormat: "docx" }
   );
+
+  // Validate DOCX buffer
+  if (!docxResult.buffer || docxResult.buffer.length === 0) {
+    throw new Error("Failed to generate DOCX: buffer is empty");
+  }
+
+  // Generate PDF from the same tailored content
+  // Note: In production, consider converting DOCX to PDF using a service
+  const pdfResult = await rebuildResume(
+    structure,
+    tailoredContent,
+    { outputFormat: "pdf" }
+  );
+
+  // Validate PDF buffer
+  if (!pdfResult.buffer || pdfResult.buffer.length === 0) {
+    throw new Error("Failed to generate PDF: buffer is empty");
+  }
 
   // Format tailored text for ATS checking
   const tailoredText = formatTailoredResumeText(tailoredContent);
@@ -109,9 +127,8 @@ export async function tailorResumeWithStructure(
     tailoredText,
     tailoredContent,
     structure,
-    fileBuffer: rebuilt.buffer,
-    mimeType: rebuilt.mimeType,
-    fileExtension: rebuilt.fileExtension,
+    docxBuffer: docxResult.buffer,
+    pdfBuffer: pdfResult.buffer,
   };
 }
 

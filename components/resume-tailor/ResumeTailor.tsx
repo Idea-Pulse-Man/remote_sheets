@@ -44,11 +44,21 @@ type TailorData = {
   matchedKeywords: string[];
   missingKeywords: string[];
   recommendations: string[];
-  generatedFile?: {
-    fileName: string;
-    fileType: string;
-    fileSize: number;
-    downloadUrl: string;
+  generatedFiles?: {
+    docx: {
+      fileName: string;
+      fileType: string;
+      fileSize: number;
+      downloadUrl: string;
+      mimeType: string;
+    };
+    pdf: {
+      fileName: string;
+      fileType: string;
+      fileSize: number;
+      downloadUrl: string;
+      mimeType: string;
+    };
   };
   uploadedToDrive: boolean;
   googleDriveMetadata?: {
@@ -215,13 +225,16 @@ export function ResumeTailor() {
 
       const tailorResult = await tailorResponse.json();
       
+      // Validate response structure
+      if (!tailorResult.files || !tailorResult.files.docx || !tailorResult.files.pdf) {
+        throw new Error("Invalid response: missing file data");
+      }
+
       updateData({
         tailoredResume: tailorResult.tailoredText,
-        generatedFile: {
-          fileName: tailorResult.fileName,
-          fileType: tailorResult.fileType,
-          fileSize: tailorResult.fileSize,
-          downloadUrl: tailorResult.downloadUrl,
+        generatedFiles: {
+          docx: tailorResult.files.docx,
+          pdf: tailorResult.files.pdf,
         },
       });
 
@@ -412,7 +425,7 @@ export function ResumeTailor() {
         <TailorResults
           data={data}
           onDownload={handleDownload}
-          onGenerateFile={handleGenerateFile}
+          onGenerateFile={() => {}}
           updateData={updateData}
         />
       </div>

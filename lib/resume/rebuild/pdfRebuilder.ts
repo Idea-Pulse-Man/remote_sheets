@@ -6,21 +6,30 @@ import { TEMPLATE_CONFIGS } from "../../resumeTemplates/types";
 
 /**
  * Rebuild PDF from structure and tailored content
- * Since PDFs can't be directly edited, we use the PDF generator
- * which creates a clean PDF with the tailored content
  * 
- * Note: For better structure preservation, consider converting DOCX to PDF
- * using a service like LibreOffice or CloudConvert in production
+ * Note: This generates PDF directly from content using the PDF generator.
+ * For production, consider converting the DOCX to PDF using a service
+ * (LibreOffice, CloudConvert) for better structure preservation.
+ * 
+ * The DOCX buffer should already exist before calling this function.
  */
 export async function rebuildPDFFromStructure(
   structure: ResumeStructure,
   tailoredContent: ResumeContent
 ): Promise<Buffer> {
+  // Validate input
+  if (!tailoredContent || !tailoredContent.profileTitle) {
+    throw new Error("Invalid tailored content: missing required fields");
+  }
+
   // Generate PDF using the existing PDF generator
-  // Uses modern template config for clean output
   const templateConfig = TEMPLATE_CONFIGS.modern;
   const pdfDoc = generatePDFDocument(tailoredContent, templateConfig);
   const pdfBuffer = await renderToBuffer(pdfDoc);
+  
+  if (!pdfBuffer || pdfBuffer.length === 0) {
+    throw new Error("PDF generation failed: empty buffer");
+  }
   
   return Buffer.from(pdfBuffer);
 }

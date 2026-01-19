@@ -23,20 +23,45 @@ export async function POST(request: NextRequest) {
       jobDescription,
     });
 
-    // Convert buffer to base64 for response
-    const base64File = result.fileBuffer.toString("base64");
-    const dataUrl = `data:${result.mimeType};base64,${base64File}`;
+    // Validate buffers before encoding
+    if (!result.docxBuffer || result.docxBuffer.length === 0) {
+      throw new Error("DOCX generation failed: empty buffer");
+    }
+
+    if (!result.pdfBuffer || result.pdfBuffer.length === 0) {
+      throw new Error("PDF generation failed: empty buffer");
+    }
+
+    // Convert buffers to base64 for response
+    const docxBase64 = result.docxBuffer.toString("base64");
+    const pdfBase64 = result.pdfBuffer.toString("base64");
+
+    const docxDataUrl = `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${docxBase64}`;
+    const pdfDataUrl = `data:application/pdf;base64,${pdfBase64}`;
 
     return NextResponse.json({
       tailoredText: result.tailoredText,
-      fileName: `tailored-resume.${result.fileExtension}`,
-      fileType: result.fileExtension,
-      fileSize: result.fileBuffer.length,
-      downloadUrl: dataUrl,
-      mimeType: result.mimeType,
+      files: {
+        docx: {
+          fileName: "tailored-resume.docx",
+          fileType: "docx",
+          fileSize: result.docxBuffer.length,
+          downloadUrl: docxDataUrl,
+          mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        },
+        pdf: {
+          fileName: "tailored-resume.pdf",
+          fileType: "pdf",
+          fileSize: result.pdfBuffer.length,
+          downloadUrl: pdfDataUrl,
+          mimeType: "application/pdf",
+        },
+      },
     });
   } catch (error) {
     console.error("Structure-preserving tailor error:", error);
+    
+    // Always return JSON error, never binary data
     return NextResponse.json(
       {
         error:
