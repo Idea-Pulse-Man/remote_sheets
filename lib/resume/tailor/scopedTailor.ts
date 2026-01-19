@@ -26,6 +26,11 @@ export function applyScopedTailoring(
   tailoredResponse: TailorResumeResponse,
   originalContent: ResumeContent
 ): ResumeContent {
+  // Validate original content has required fields
+  if (!originalContent.experience || !Array.isArray(originalContent.experience)) {
+    throw new Error("Invalid original content: experience array is required");
+  }
+
   // Start with original content - preserve everything by default
   const improvedContent: ResumeContent = {
     profileTitle: originalContent.profileTitle,
@@ -33,13 +38,18 @@ export function applyScopedTailoring(
     experience: originalContent.experience.map((exp) => ({
       ...exp,
       // Preserve original bullets - will be replaced only if tailored version exists
-      bullets: [...exp.bullets],
+      bullets: Array.isArray(exp.bullets) ? [...exp.bullets] : [],
     })),
     contactInfo: originalContent.contactInfo,
     skills: originalContent.skills ? [...originalContent.skills] : undefined,
     education: originalContent.education ? [...originalContent.education] : undefined,
     certifications: originalContent.certifications ? [...originalContent.certifications] : undefined,
   };
+
+  // Fail loudly if experience is empty after initialization
+  if (improvedContent.experience.length === 0) {
+    throw new Error("Critical: Resume experience section is empty. Experience parsing may have failed.");
+  }
 
   // 1. ALLOWED: Improve profile title
   if (tailoredResponse.profile_title && tailoredResponse.profile_title.trim()) {

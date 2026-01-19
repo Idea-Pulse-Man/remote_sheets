@@ -131,26 +131,72 @@ export function structureToContent(structure: ResumeStructure): {
       result.professionalSummary = section.content.join("\n");
     } else if (section.type === "experience") {
       // Parse experience entries
+      // Support multiple formats:
+      // 1. "Job Title | Company"
+      // 2. "Job Title at Company"
+      // 3. "Job Title - Company"
+      // 4. Lines starting with job titles (detected by capital case patterns)
       let currentJob: { jobTitle: string; company: string; bullets: string[] } | null = null;
       
       for (const line of section.content) {
-        // Check if line contains job title and company (usually separated by | or at company)
-        if (line.includes("|") || line.match(/\s+at\s+/i)) {
-          if (currentJob) {
+        const trimmedLine = line.trim();
+        if (!trimmedLine) continue;
+        
+        // Check if line contains job title and company (multiple separators supported)
+        const hasSeparator = trimmedLine.includes("|") || 
+                            trimmedLine.match(/\s+at\s+/i) || 
+                            trimmedLine.includes(" - ") ||
+                            trimmedLine.match(/^[A-Z][^|]+[-–—]\s*[A-Z]/); // Title - Company format
+        
+        if (hasSeparator) {
+          // Save previous job if exists
+          if (currentJob && (currentJob.jobTitle || currentJob.company)) {
             result.experience.push(currentJob);
           }
-          const parts = line.split(/[|]|\s+at\s+/i).map((p) => p.trim());
-          currentJob = {
-            jobTitle: parts[0] || "",
-            company: parts[1] || "",
-            bullets: [],
-          };
+          
+          // Extract job title and company
+          const parts = trimmedLine
+            .split(/[|]|\s+at\s+|\s*[-–—]\s*/i)
+            .map((p) => p.trim())
+            .filter((p) => p.length > 0);
+          
+          if (parts.length >= 1) {
+            currentJob = {
+              jobTitle: parts[0] || "",
+              company: parts[1] || parts[0] || "", // If only one part, use as both
+              bullets: [],
+            };
+          }
         } else if (currentJob) {
-          currentJob.bullets.push(line);
+          // This is a bullet point for the current job
+          if (trimmedLine.match(/^[•\-\*]\s*/) || trimmedLine.length > 10) {
+            // Remove bullet markers
+            const bulletText = trimmedLine.replace(/^[•\-\*]\s*/, "").trim();
+            if (bulletText) {
+              currentJob.bullets.push(bulletText);
+            }
+          } else if (trimmedLine.length > 3) {
+            // Assume it's a bullet even without marker if it's substantial text
+            currentJob.bullets.push(trimmedLine);
+          }
+        } else {
+          // No current job but we have a line - might be a job title without separator
+          // Try to detect if it looks like a job title (capitalized, reasonable length)
+          if (trimmedLine.length > 5 && trimmedLine.length < 80 && 
+              trimmedLine[0] === trimmedLine[0].toUpperCase() &&
+              !trimmedLine.match(/^[•\-\*]/)) {
+            // Start a new job entry
+            currentJob = {
+              jobTitle: trimmedLine,
+              company: "",
+              bullets: [],
+            };
+          }
         }
       }
       
-      if (currentJob) {
+      // Don't forget the last job
+      if (currentJob && (currentJob.jobTitle || currentJob.company)) {
         result.experience.push(currentJob);
       }
     } else if (section.type === "skills") {

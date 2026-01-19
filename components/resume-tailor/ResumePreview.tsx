@@ -89,8 +89,8 @@ export function ResumePreview({
 
             <Separator />
 
-            {/* Experience */}
-            {resumeContent.experience && resumeContent.experience.length > 0 && (
+            {/* Experience - CRITICAL: Always render if data exists */}
+            {resumeContent.experience && Array.isArray(resumeContent.experience) && resumeContent.experience.length > 0 ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <h3 className="text-lg font-semibold uppercase tracking-wide">
@@ -104,11 +104,13 @@ export function ResumePreview({
                   <div key={idx} className="space-y-2">
                     <div className="flex items-start justify-between">
                       <div>
-                        <p className="font-semibold text-base">{exp.jobTitle}</p>
-                        <p className="text-sm text-muted-foreground italic">{exp.company}</p>
+                        <p className="font-semibold text-base">{exp.jobTitle || "Untitled Position"}</p>
+                        {exp.company && (
+                          <p className="text-sm text-muted-foreground italic">{exp.company}</p>
+                        )}
                       </div>
                     </div>
-                    {exp.bullets && exp.bullets.length > 0 && (
+                    {exp.bullets && Array.isArray(exp.bullets) && exp.bullets.length > 0 && (
                       <ul className="list-disc list-inside space-y-1 ml-4">
                         {exp.bullets.map((bullet, bulletIdx) => (
                           <li key={bulletIdx} className="text-sm leading-relaxed">
@@ -119,6 +121,12 @@ export function ResumePreview({
                     )}
                   </div>
                 ))}
+              </div>
+            ) : (
+              <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                <p className="text-sm text-yellow-900 dark:text-yellow-200 font-medium">
+                  ⚠️ Work Experience section not found. This may indicate a parsing issue. Please check your original resume format.
+                </p>
               </div>
             )}
 

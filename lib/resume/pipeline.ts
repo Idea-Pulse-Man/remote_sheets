@@ -63,6 +63,12 @@ export async function tailorResumeWithStructure(
     
     // Extract content from structure
     const contentFromStructure = structureToContent(structure);
+    
+    // Validate experience was parsed
+    if (!contentFromStructure.experience || contentFromStructure.experience.length === 0) {
+      throw new Error("Failed to parse work experience from resume. Please ensure your resume contains a work experience section.");
+    }
+    
     originalContent = {
       profileTitle: contentFromStructure.profileTitle,
       professionalSummary: contentFromStructure.professionalSummary || "",
@@ -76,6 +82,12 @@ export async function tailorResumeWithStructure(
     // PDF: Infer structure from text
     structure = inferStructureFromText(parseResult.text);
     const contentFromStructure = structureToContent(structure);
+    
+    // Validate experience was parsed
+    if (!contentFromStructure.experience || contentFromStructure.experience.length === 0) {
+      throw new Error("Failed to parse work experience from resume. Please ensure your resume contains a work experience section.");
+    }
+    
     originalContent = {
       profileTitle: contentFromStructure.profileTitle,
       professionalSummary: contentFromStructure.professionalSummary || "",
@@ -117,6 +129,9 @@ export async function tailorResumeWithStructure(
   // Validate tailored content
   if (!tailoredContent.profileTitle || !tailoredContent.profileTitle.trim()) {
     throw new Error("Tailored content validation failed: profile title is required");
+  }
+  if (!tailoredContent.experience || !Array.isArray(tailoredContent.experience) || tailoredContent.experience.length === 0) {
+    throw new Error("Tailored content validation failed: experience array is required and cannot be empty");
   }
 
   // Step 5: Format tailored text for ATS checking
